@@ -1,0 +1,25 @@
+{
+  "name": "xeno-crm-backend",
+  "version": "1.0.0",
+  "description": "Campaign Copilot — AI-native Mini CRM backend with Gemini AI integration",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "seed": "node src/seed/seedData.js"
+  },
+  "keywords": ["crm", "gemini", "ai", "mongodb", "express"],
+  "author": "TusarGoswami",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
