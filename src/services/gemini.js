@@ -8,7 +8,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Initialize the Gemini client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 /**
  * System prompt that instructs Gemini to return structured JSON.
@@ -48,6 +48,93 @@ Rules:
 - Always respond with valid JSON only — no extra text`;
 
 /**
+ * Local rule-based parser as a fallback when Gemini API is rate-limited or quota is exceeded.
+ */
+function fallbackParse(prompt) {
+  const segmentFilters = {
+    minTotalSpend: null,
+    maxTotalSpend: null,
+    minTotalOrders: null,
+    daysSinceLastOrder: null,
+    city: null,
+    channel: null
+  };
+
+  const lowerPrompt = prompt.toLowerCase();
+
+  // Spend filters (e.g. "spent over ₹1500", "spend > 1500")
+  const spendOverMatch = prompt.match(/(?:spent over|spend >|spend over|spend more than)\s*(?:₹|rs\.?|)?\s*(\d+)/i);
+  if (spendOverMatch) {
+    segmentFilters.minTotalSpend = parseInt(spendOverMatch[1], 10);
+  }
+  const spendUnderMatch = prompt.match(/(?:spent under|spend <|spent less than)\s*(?:₹|rs\.?|)?\s*(\d+)/i);
+  if (spendUnderMatch) {
+    segmentFilters.maxTotalSpend = parseInt(spendUnderMatch[1], 10);
+  }
+
+  // Days since last order (e.g. "haven't bought in 60 days", "inactive for 60 days")
+  const daysMatch = prompt.match(/(?:haven't bought in|no order in|inactive for|last|within)\s*(\d+)\s*(?:days|day)/i);
+  if (daysMatch) {
+    segmentFilters.daysSinceLastOrder = parseInt(daysMatch[1], 10);
+  } else {
+    // simpler match for any number of days
+    const simpleDaysMatch = prompt.match(/(\d+)\s*days?/i);
+    if (simpleDaysMatch && !spendOverMatch && !spendUnderMatch) {
+      segmentFilters.daysSinceLastOrder = parseInt(simpleDaysMatch[1], 10);
+    }
+  }
+
+  // Orders count (e.g. "at least 3 orders", "orders > 3")
+  const ordersMatch = prompt.match(/(?:min|at least|more than|orders >|orders >=)\s*(\d+)\s*(?:orders|order|purchases)/i);
+  if (ordersMatch) {
+    segmentFilters.minTotalOrders = parseInt(ordersMatch[1], 10);
+  }
+
+  // Channel preferred
+  if (lowerPrompt.includes('whatsapp')) {
+    segmentFilters.channel = 'whatsapp';
+  } else if (lowerPrompt.includes('sms')) {
+    segmentFilters.channel = 'sms';
+  } else if (lowerPrompt.includes('email')) {
+    segmentFilters.channel = 'email';
+  }
+
+  // City (matches standard seeded Indian cities)
+  const cities = ['Mumbai', 'Delhi', 'Pune', 'Kolkata', 'Bangalore', 'Chennai', 'Jaipur', 'Hyderabad'];
+  for (const city of cities) {
+    if (lowerPrompt.includes(city.toLowerCase())) {
+      segmentFilters.city = city;
+      break;
+    }
+  }
+
+  // Generate a catchy campaign name
+  let campaignName = 'Custom Campaign';
+  if (segmentFilters.daysSinceLastOrder) {
+    campaignName = `Win-back Inactive ${segmentFilters.daysSinceLastOrder} Days`;
+  } else if (segmentFilters.minTotalSpend) {
+    campaignName = `High Spenders (>₹${segmentFilters.minTotalSpend})`;
+  }
+
+  // Suggested message draft
+  let suggestedMessage = 'Hello! We missed you. Check out our latest collection and get a special discount on your next order!';
+  if (segmentFilters.channel === 'whatsapp') {
+    suggestedMessage = 'Hey! We noticed you haven\'t visited us lately. Here is a special 15% off coupon code: WINBACK15 just for you! 🌟';
+  } else if (segmentFilters.channel === 'sms') {
+    suggestedMessage = 'Hey! We miss you. Use code WINBACK15 for 15% off your next order at Campaign Copilot. Shop now!';
+  } else if (segmentFilters.channel === 'email') {
+    suggestedMessage = 'Hi there, We noticed it has been a while since your last purchase. We would love to welcome you back with a special 15% discount. Use code WINBACK15 at checkout!';
+  }
+
+  return {
+    segmentFilters,
+    campaignName,
+    suggestedMessage,
+    reasoning: 'Parsed via Local rule-based parser (Gemini API fallback due to rate limits).'
+  };
+}
+
+/**
  * Parse a natural language campaign prompt using Gemini AI.
  * @param {string} prompt - The marketer's natural language description
  * @returns {Object} Parsed campaign data with segmentFilters, campaignName, suggestedMessage, reasoning
@@ -84,8 +171,9 @@ async function parsePrompt(prompt) {
 
     return parsed;
   } catch (error) {
-    console.error('❌ Gemini parsing error:', error.message);
-    throw new Error(`Failed to parse campaign prompt: ${error.message}`);
+    console.warn('⚠️ Gemini API failed (using local fallback parser):', error.message);
+    // Fall back to regex parsing so the application flow doesn't break
+    return fallbackParse(prompt);
   }
 }
 
