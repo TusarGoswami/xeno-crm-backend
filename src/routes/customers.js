@@ -161,6 +161,17 @@ router.post('/', async (req, res) => {
       customer,
     });
   } catch (error) {
+    if (error.name === 'MongoBulkWriteError' || error.name === 'BulkWriteError' || error.writeErrors) {
+      const insertedCount = error.result?.nInserted || error.insertedDocs?.length || 0;
+      console.log(`👥 Bulk ingested ${insertedCount} customers with some duplicates skipped`);
+      return res.status(201).json({
+        success: true,
+        count: insertedCount,
+        customers: error.insertedDocs || [],
+        warning: 'Some duplicate records were skipped',
+        writeErrorsCount: error.writeErrors?.length || 0,
+      });
+    }
     console.error('❌ Create customer error:', error.message);
     return res.status(500).json({
       error: 'Failed to create customer',

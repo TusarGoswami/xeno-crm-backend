@@ -131,12 +131,8 @@ async function seed() {
       const channelRoll = Math.random();
       const channel = channelRoll < 0.5 ? 'whatsapp' : channelRoll < 0.8 ? 'sms' : 'email';
 
-      const totalOrders = randInt(1, 20);
-      const lastOrderDate = daysAgo(7, 120);
-      const tags = generateTags();
-
-      // Generate 2-3 orders for this customer
-      const orderCount = randInt(2, 3);
+      // Generate 1-8 orders for this customer
+      const orderCount = randInt(1, 8);
       let totalSpend = 0;
       const customerOrders = [];
 
@@ -158,8 +154,8 @@ async function seed() {
         });
       }
 
-      // Ensure totalSpend is within ₹500-₹15000 range
-      totalSpend = Math.max(500, Math.min(15000, totalSpend));
+      const lastOrderDate = daysAgo(7, 120);
+      const tags = generateTags();
 
       const customer = {
         name,
@@ -169,7 +165,7 @@ async function seed() {
         city,
         tags,
         totalSpend,
-        totalOrders,
+        totalOrders: orderCount,
         lastOrderDate,
         createdAt: daysAgo(30, 365),
       };

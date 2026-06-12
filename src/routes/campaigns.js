@@ -5,6 +5,47 @@ const Campaign = require('../models/Campaign');
 const Message = require('../models/Message');
 const Customer = require('../models/Customer');
 
+// Helper to recover campaigns stuck in 'sending' status for too long (e.g. 2 minutes)
+async function checkAndResolveStuckCampaigns() {
+  try {
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const stuckCampaigns = await Campaign.find({
+      status: 'sending',
+      createdAt: { $lt: twoMinutesAgo }
+    });
+
+    for (const campaign of stuckCampaigns) {
+      const pendingCount = await Message.countDocuments({
+        campaignId: campaign._id,
+        status: 'sent'
+      });
+
+      if (pendingCount > 0) {
+        await Message.updateMany(
+          { campaignId: campaign._id, status: 'sent' },
+          { 
+            $set: { status: 'failed' },
+            $push: { statusHistory: { status: 'failed', timestamp: new Date() } }
+          }
+        );
+
+        await Campaign.findByIdAndUpdate(campaign._id, {
+          $inc: { 'stats.failed': pendingCount },
+          $set: { status: 'completed' }
+        });
+        console.log(`🔧 Recovered stuck campaign "${campaign.name}" by marking ${pendingCount} stuck messages as failed.`);
+      } else {
+        await Campaign.findByIdAndUpdate(campaign._id, {
+          $set: { status: 'completed' }
+        });
+        console.log(`🔧 Recovered stuck campaign "${campaign.name}" by setting status to completed.`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error recovering stuck campaigns:', error.message);
+  }
+}
+
 /**
  * POST /api/campaigns/create
  * Creates a new campaign, generates one Message per customer,
@@ -125,6 +166,7 @@ router.post('/create', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
+    await checkAndResolveStuckCampaigns();
     const campaigns = await Campaign.find()
       .sort({ createdAt: -1 })
       .lean();
@@ -148,6 +190,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
+    await checkAndResolveStuckCampaigns();
     const campaign = await Campaign.findById(req.params.id).lean();
 
     if (!campaign) {

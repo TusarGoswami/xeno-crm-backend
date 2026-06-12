@@ -63,9 +63,29 @@ router.post('/', async (req, res) => {
     await message.save();
 
     // Build the atomic campaign stats update
-    // We increment the new status counter
+    // We increment the new status counter and backfill any intermediate skipped states
     const statsUpdate = {};
-    statsUpdate[`stats.${status}`] = 1;
+
+    if (status === 'failed') {
+      statsUpdate['stats.failed'] = 1;
+    } else {
+      const STATUS_ORDER = ['sent', 'delivered', 'opened', 'read', 'clicked'];
+      const TRACKED_STATS = ['delivered', 'opened', 'clicked'];
+
+      const prevIndex = STATUS_ORDER.indexOf(previousStatus);
+      const newIndex = STATUS_ORDER.indexOf(status);
+
+      if (prevIndex !== -1 && newIndex !== -1 && newIndex > prevIndex) {
+        for (let i = prevIndex + 1; i <= newIndex; i++) {
+          const s = STATUS_ORDER[i];
+          if (TRACKED_STATS.includes(s)) {
+            statsUpdate[`stats.${s}`] = 1;
+          }
+        }
+      } else {
+        statsUpdate[`stats.${status}`] = 1;
+      }
+    }
 
     // Use atomic $inc to safely handle concurrent callbacks
     await Campaign.findByIdAndUpdate(message.campaignId, {
