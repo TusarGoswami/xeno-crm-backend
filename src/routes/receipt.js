@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Message = require('../models/Message');
 const Campaign = require('../models/Campaign');
+const Customer = require('../models/Customer');
+const Order = require('../models/Order');
 
 /**
  * POST /api/receipt
@@ -28,7 +30,7 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const validStatuses = ['sent', 'delivered', 'failed', 'opened', 'read', 'clicked'];
+    const validStatuses = ['sent', 'delivered', 'failed', 'opened', 'read', 'clicked', 'converted'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         error: `Invalid status: "${status}". Must be one of: ${validStatuses.join(', ')}`,
@@ -69,8 +71,8 @@ router.post('/', async (req, res) => {
     if (status === 'failed') {
       statsUpdate['stats.failed'] = 1;
     } else {
-      const STATUS_ORDER = ['sent', 'delivered', 'opened', 'read', 'clicked'];
-      const TRACKED_STATS = ['delivered', 'opened', 'clicked'];
+      const STATUS_ORDER = ['sent', 'delivered', 'opened', 'read', 'clicked', 'converted'];
+      const TRACKED_STATS = ['delivered', 'opened', 'clicked', 'converted'];
 
       const prevIndex = STATUS_ORDER.indexOf(previousStatus);
       const newIndex = STATUS_ORDER.indexOf(status);
@@ -83,7 +85,44 @@ router.post('/', async (req, res) => {
           }
         }
       } else {
-        statsUpdate[`stats.${status}`] = 1;
+        if (TRACKED_STATS.includes(status)) {
+          statsUpdate[`stats.${status}`] = 1;
+        }
+      }
+    }
+
+    if (status === 'converted') {
+      // Simulate an order from the conversion
+      const amount = Math.floor(Math.random() * 2500) + 500; // ₹500 - ₹3000
+      
+      const mockProducts = [
+        { name: 'Wireless Earbuds', price: 1299 },
+        { name: 'Cotton Kurta', price: 899 },
+        { name: 'Running Shoes', price: 2499 },
+        { name: 'Bluetooth Speaker', price: 1899 },
+        { name: 'Leather Wallet', price: 599 },
+        { name: 'Organic Green Tea (100g)', price: 450 }
+      ];
+      
+      const item = mockProducts[Math.floor(Math.random() * mockProducts.length)];
+      
+      try {
+        await Order.create({
+          customerId: message.customerId,
+          amount,
+          items: [{ name: item.name, price: amount }],
+          status: 'completed'
+        });
+        
+        await Customer.findByIdAndUpdate(message.customerId, {
+          $inc: { totalSpend: amount, totalOrders: 1 },
+          $set: { lastOrderDate: new Date() }
+        });
+        
+        statsUpdate['stats.revenue'] = amount;
+        console.log(`💰 Simulating conversion order of ₹${amount} for Customer ${message.customerId}`);
+      } catch (err) {
+        console.error('⚠️ Conversion order simulation failed:', err.message);
       }
     }
 

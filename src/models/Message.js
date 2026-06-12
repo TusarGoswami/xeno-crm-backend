@@ -17,6 +17,7 @@ const STATUS_HIERARCHY = {
   opened: 2,
   read: 3,
   clicked: 4,
+  converted: 5,  // 'converted' is the ultimate conversion state
 };
 
 const messageSchema = new mongoose.Schema({
@@ -46,7 +47,7 @@ const messageSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['sent', 'delivered', 'failed', 'opened', 'read', 'clicked'],
+    enum: ['sent', 'delivered', 'failed', 'opened', 'read', 'clicked', 'converted'],
     default: 'sent',
   },
   statusHistory: [
