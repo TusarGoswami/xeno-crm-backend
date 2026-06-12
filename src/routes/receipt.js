@@ -109,6 +109,7 @@ router.post('/', async (req, res) => {
       try {
         await Order.create({
           customerId: message.customerId,
+          campaignId: message.campaignId,
           amount,
           items: [{ name: item.name, price: amount }],
           status: 'completed'

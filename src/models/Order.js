@@ -11,6 +11,11 @@ const orderSchema = new mongoose.Schema({
     required: [true, 'Customer ID is required'],
     index: true,
   },
+  campaignId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Campaign',
+    index: true,
+  },
   amount: {
     type: Number,
     required: [true, 'Order amount is required'],

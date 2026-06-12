@@ -31,7 +31,7 @@ const campaignSchema = new mongoose.Schema({
   },
   channel: {
     type: String,
-    enum: ['whatsapp', 'sms', 'email'],
+    enum: ['whatsapp', 'sms', 'email', 'rcs'],
     default: 'whatsapp',
   },
   status: {

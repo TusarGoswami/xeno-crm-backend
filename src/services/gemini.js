@@ -32,7 +32,7 @@ The JSON must have this exact structure:
     "minTotalOrders": null or number (minimum number of orders),
     "daysSinceLastOrder": null or number (customers who haven't ordered in this many days),
     "city": null or string (city name, capitalize first letter e.g. "Mumbai"),
-    "channel": null or "whatsapp" or "sms" or "email" (preferred communication channel)
+    "channel": null or "whatsapp" or "sms" or "email" or "rcs" (preferred communication channel)
   },
   "campaignName": "A short, catchy campaign name",
   "suggestedMessage": "A personalized, friendly marketing message for this audience. Use ₹ for currency. Keep it under 160 characters for SMS compatibility. Make it engaging and include a clear call-to-action.",
@@ -44,7 +44,7 @@ Rules:
 - For "daysSinceLastOrder", extract the number of days of inactivity mentioned
 - For spend filters, extract the ₹ amount mentioned
 - The suggestedMessage should feel personal, warm, and include the brand tone
-- If the channel is mentioned (WhatsApp, SMS, email), set it; otherwise leave null
+- If the channel is mentioned (WhatsApp, SMS, email, RCS), set it; otherwise leave null
 - Always respond with valid JSON only — no extra text`;
 
 /**
@@ -97,6 +97,8 @@ function fallbackParse(prompt) {
     segmentFilters.channel = 'sms';
   } else if (lowerPrompt.includes('email')) {
     segmentFilters.channel = 'email';
+  } else if (lowerPrompt.includes('rcs')) {
+    segmentFilters.channel = 'rcs';
   }
 
   // City (matches standard seeded Indian cities)
@@ -124,6 +126,8 @@ function fallbackParse(prompt) {
     suggestedMessage = 'Hey! We miss you. Use code WINBACK15 for 15% off your next order at Campaign Copilot. Shop now!';
   } else if (segmentFilters.channel === 'email') {
     suggestedMessage = 'Hi there, We noticed it has been a while since your last purchase. We would love to welcome you back with a special 15% discount. Use code WINBACK15 at checkout!';
+  } else if (segmentFilters.channel === 'rcs') {
+    suggestedMessage = 'Hey! We noticed it\'s been a while. Tap to check out our new arrivals and enjoy a special 15% discount code: WINBACK15! 📱✨';
   }
 
   return {

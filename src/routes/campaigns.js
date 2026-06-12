@@ -103,6 +103,7 @@ router.post('/create', async (req, res) => {
           break;
         case 'sms':
         case 'whatsapp':
+        case 'rcs':
         default:
           recipient = customer.phone;
           break;

@@ -191,7 +191,7 @@ router.post('/:id/orders', async (req, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    const { amount, items, status } = req.body;
+    const { amount, items, status, campaignId } = req.body;
     if (!amount || !items || items.length === 0) {
       return res.status(400).json({
         error: 'Missing required fields: amount, items (non-empty array)',
@@ -201,6 +201,7 @@ router.post('/:id/orders', async (req, res) => {
     // Create the order
     const order = await Order.create({
       customerId: customer._id,
+      campaignId: campaignId || null,
       amount,
       items,
       status: status || 'completed',
@@ -211,6 +212,14 @@ router.post('/:id/orders', async (req, res) => {
       $inc: { totalSpend: amount, totalOrders: 1 },
       $set: { lastOrderDate: new Date() },
     });
+
+    // If order is attributed to a campaign, update campaign stats atomically
+    if (campaignId) {
+      const Campaign = require('../models/Campaign');
+      await Campaign.findByIdAndUpdate(campaignId, {
+        $inc: { 'stats.converted': 1, 'stats.revenue': amount }
+      });
+    }
 
     console.log(`📦 Order created for ${customer.name}: ₹${amount}`);
 
