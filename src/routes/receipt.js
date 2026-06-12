@@ -75,14 +75,18 @@ router.post('/', async (req, res) => {
     console.log(`📨 Message ${messageId}: ${previousStatus} → ${status}`);
 
     // Check if all messages in this campaign have reached a terminal state
-    // (delivered, failed, opened, read, clicked) — if so, mark campaign as completed
+    // We query the DB for actual message statuses instead of using stat counters,
+    // because counters can double-count (a message going delivered→opened increments both).
     const campaign = await Campaign.findById(message.campaignId).lean();
-    if (campaign) {
-      const totalTerminal = campaign.stats.delivered + campaign.stats.failed +
-                            campaign.stats.opened + campaign.stats.clicked;
-      // Note: opened/clicked messages were already counted as delivered,
-      // so we check if sent count matches delivered + failed
-      if (campaign.stats.delivered + campaign.stats.failed >= campaign.audienceSize) {
+    if (campaign && campaign.status !== 'completed') {
+      // Count messages still in 'sent' status (haven't received any callback yet)
+      const pendingCount = await Message.countDocuments({
+        campaignId: message.campaignId,
+        status: 'sent',
+      });
+
+      // If no messages are still pending, all have reached a terminal state
+      if (pendingCount === 0) {
         await Campaign.findByIdAndUpdate(message.campaignId, {
           status: 'completed',
         });
