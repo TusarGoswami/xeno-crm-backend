@@ -1,6 +1,29 @@
 # 🚀 Campaign Copilot — CRM Backend
 
-The core backend service for **Campaign Copilot**, an AI-native Mini CRM that lets marketers describe campaigns in plain English. This service uses **Google Gemini AI** to parse natural language into customer segment filters, queries **MongoDB** to find matching audiences, drafts personalized messages, and orchestrates campaign delivery through the Channel Service. It also ingests real-time delivery callbacks to update live campaign statistics.
+> **AI-Native Mini CRM for Reaching Shoppers** — Built for [XENO](https://www.xeno.co/) Engineering Take-Home Assignment
+
+🔗 **Live API:** [https://xeno-crm-backend-i0y6.onrender.com](https://xeno-crm-backend-i0y6.onrender.com)
+
+The core backend service for **Campaign Copilot**, an AI-native Mini CRM that lets marketers describe campaigns in plain English. This service uses **Google Gemini AI** to parse natural language into customer segment filters, queries **MongoDB** to find matching audiences, drafts personalized messages, and orchestrates campaign delivery through the Channel Service. It also ingests real-time delivery callbacks to update live campaign statistics and tracks campaign-to-order attribution.
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                    Campaign Copilot System                    │
+├───────────────┬───────────────────────┬───────────────────────┤
+│   Frontend    │      Backend          │   Channel Service     │
+│   (Vercel)    │    ★ (this repo)      │     (Render)          │
+│               │      (Render)         │                       │
+│  React + Vite │  Node.js + Express    │  Node.js + Express    │
+│  Tailwind CSS │  MongoDB + Gemini AI  │  Delivery Simulator   │
+│               │                       │                       │
+│  ──API───────>│  ──POST /send───────> │                       │
+│               │  <──POST /receipt──── │                       │
+└───────────────┴───────────────────────┴───────────────────────┘
+```
 
 ---
 
@@ -16,6 +39,17 @@ The core backend service for **Campaign Copilot**, an AI-native Mini CRM that le
 
 ---
 
+## ✨ Key Features
+
+- **AI-Powered Campaign Parsing** — Natural language to structured filters via Gemini AI
+- **Dynamic Customer Segmentation** — Flexible MongoDB queries with AND/OR logic
+- **Multi-Channel Support** — WhatsApp, SMS, Email, RCS
+- **Real-Time Delivery Tracking** — Ingests callbacks: sent → delivered → opened → clicked → converted
+- **Campaign Attribution** — Links orders back to campaigns for ROI tracking
+- **Demo Data Seeding** — 100 realistic Indian customers with order history
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -23,19 +57,19 @@ xeno-crm-backend/
 ├── src/
 │   ├── models/
 │   │   ├── Customer.js       # Customer schema with segment-filterable fields
-│   │   ├── Order.js          # Order schema with line items
+│   │   ├── Order.js          # Order schema with campaign attribution
 │   │   ├── Campaign.js       # Campaign schema with embedded stats
 │   │   └── Message.js        # Message schema with status hierarchy
 │   ├── routes/
-│   │   ├── ai.js             # POST /api/ai/parse — Gemini integration
+│   │   ├── ai.js             # POST /api/ai/parse — Gemini AI integration
 │   │   ├── segments.js       # POST /api/segments/preview — dynamic segmentation
-│   │   ├── campaigns.js      # CRUD + campaign launch
-│   │   ├── receipt.js        # POST /api/receipt — delivery callbacks
-│   │   └── customers.js      # Customer listing
+│   │   ├── campaigns.js      # CRUD + campaign launch + channel routing
+│   │   ├── receipt.js        # POST /api/receipt — delivery callbacks + attribution
+│   │   └── customers.js      # Customer CRUD + order management
 │   ├── services/
-│   │   └── gemini.js         # Gemini AI service with structured prompting
+│   │   └── gemini.js         # Gemini AI service with structured prompting + fallback
 │   ├── seed/
-│   │   └── seedData.js       # Generates 100 Indian customers + orders
+│   │   └── seedData.js       # Generates 100 Indian customers + orders (all channels)
 │   └── index.js              # Express app entry point
 ├── .env                       # Environment variables (not committed)
 ├── .gitignore
@@ -99,9 +133,43 @@ Create a `.env` file in the root directory:
 | `POST` | `/api/campaigns/create` | Create and launch a campaign |
 | `GET` | `/api/campaigns` | List all campaigns with stats |
 | `GET` | `/api/campaigns/:id` | Get campaign details with message list |
-| `POST` | `/api/receipt` | Receive delivery status callbacks |
-| `GET` | `/api/customers` | List customers |
+| `POST` | `/api/receipt` | Receive delivery status callbacks from Channel Service |
+| `GET` | `/api/customers` | List customers with filtering |
+| `POST` | `/api/customers` | Add a new customer |
+| `POST` | `/api/customers/:id/orders` | Record an order with optional campaign attribution |
 | `GET` | `/health` | Health check |
+
+### AI Parse — Example Request
+
+```bash
+curl -X POST https://xeno-crm-backend-i0y6.onrender.com/api/ai/parse \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Send a WhatsApp promo to customers who spent more than 5000 in the last 30 days"}'
+```
+
+### AI Parse — Example Response
+
+```json
+{
+  "filters": {
+    "totalSpend": { "operator": ">", "value": 5000 },
+    "lastVisit": { "operator": ">", "value": "30_days" }
+  },
+  "logic": "AND",
+  "channel": "whatsapp",
+  "suggestedMessage": "🎉 Hey {name}! As one of our top shoppers, enjoy an exclusive 20% off on your next purchase. Shop now!"
+}
+```
+
+---
+
+## 🌐 Deployed URLs
+
+| Service | URL |
+|---|---|
+| **Frontend** | [xeno-crm-frontend-blond.vercel.app](https://xeno-crm-frontend-blond.vercel.app) |
+| **Backend (this repo)** | [xeno-crm-backend-i0y6.onrender.com](https://xeno-crm-backend-i0y6.onrender.com) |
+| **Channel Service** | [xeno-channel-service-kbs0.onrender.com](https://xeno-channel-service-kbs0.onrender.com) |
 
 ---
 
@@ -110,8 +178,8 @@ Create a `.env` file in the root directory:
 | Service | Repository |
 |---|---|
 | **Frontend** | [xeno-crm-frontend](https://github.com/TusarGoswami/xeno-crm-frontend) |
-| **Channel Service** | [xeno-channel-service](https://github.com/TusarGoswami/xeno-channel-service) |
 | **Backend (this repo)** | [xeno-crm-backend](https://github.com/TusarGoswami/xeno-crm-backend) |
+| **Channel Service** | [xeno-channel-service](https://github.com/TusarGoswami/xeno-channel-service) |
 
 ---
 
