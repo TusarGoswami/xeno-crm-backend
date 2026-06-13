@@ -127,9 +127,9 @@ async function seed() {
       const phone = generatePhone();
       const city = pickRandom(cities);
 
-      // Channel distribution: 50% whatsapp, 30% sms, 20% email
+      // Channel distribution: 40% whatsapp, 25% sms, 20% email, 15% rcs
       const channelRoll = Math.random();
-      const channel = channelRoll < 0.5 ? 'whatsapp' : channelRoll < 0.8 ? 'sms' : 'email';
+      const channel = channelRoll < 0.4 ? 'whatsapp' : channelRoll < 0.65 ? 'sms' : channelRoll < 0.85 ? 'email' : 'rcs';
 
       // Generate 1-8 orders for this customer
       const orderCount = randInt(1, 8);
